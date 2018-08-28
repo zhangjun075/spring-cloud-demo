@@ -1,0 +1,58 @@
+server:
+  port: 8083
+  host: localhost
+spring:
+  application:
+    name: eureka-server
+  profiles: peer1
+eureka:
+  instance:
+    hostname: eureka-server1
+    prefer-ip-address: true
+    instance-id: ${spring.cloud.client.ipAddress}:${server.port}
+    lease-renewal-interval-in-seconds: 5
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://${server.host}:8084/eureka/,http://${server.host}:8085/eureka/
+---
+server:
+  port: 8084
+  host: localhost
+spring:
+  application:
+    name: eureka-server
+  profiles: peer2
+eureka:
+  instance:
+    hostname: eureka-server2
+    prefer-ip-address: true
+    instance-id: ${spring.cloud.client.ipAddress}:${server.port}
+    lease-renewal-interval-in-seconds: 5
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://${server.host}:8084/eureka/,http://${server.host}:8085/eureka/
+
+---
+server:
+  port: 8085
+  host: localhost
+spring:
+  application:
+    name: eureka-server
+  profiles: peer3
+eureka:
+  instance:
+    hostname: eureka-server3
+    prefer-ip-address: true
+    instance-id: ${spring.cloud.client.ipAddress}:${server.port}
+    lease-renewal-interval-in-seconds: 5
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://${server.host}:8084/eureka/,http://${server.host}:8085/eureka/
+
