@@ -2,27 +2,15 @@
 <project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <modelVersion>4.0.0</modelVersion>
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <source>1.8</source>
-          <target>1.8</target>
-        </configuration>
-      </plugin>
-    </plugins>
-  </build>
   <parent>
     <groupId>com.brave</groupId>
     <artifactId>brave-cloud-demo</artifactId>
     <version>1.0-SNAPSHOT</version>
   </parent>
   <groupId>com.brave</groupId>
-  <artifactId>eureka-client</artifactId>
+  <artifactId>eureka-client2</artifactId>
   <version>1.0-SNAPSHOT</version>
-  <name>eureka-client</name>
+  <name>eureka-client2</name>
   <url>http://maven.apache.org</url>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -56,11 +44,9 @@
       <artifactId>spring-boot-autoconfigure</artifactId>
     </dependency>
 
-    <!--feign client-->
     <dependency>
-      <groupId>org.springframework.cloud</groupId>
-      <artifactId>spring-cloud-starter-feign</artifactId>
-      <version>1.4.3.RELEASE</version>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
     </dependency>
 
   </dependencies>
