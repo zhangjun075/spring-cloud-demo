@@ -172,3 +172,21 @@ ribbon:
       MaxAutoRetriesNextServer: -1
 ```
 跟进代码，看到这个值已经改变，这个时候看了下代码，对于请求只会发生一次了。
+
+- 对于使用feign的应用，如果设置超时时间，可以这么来做
+```$xslt
+@SpringBootApplication
+@EnableEurekaClient
+@EnableFeignClients
+public class EurekaClientApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(EurekaClientApplication.class,args);
+    }
+
+    @Bean
+    Request.Options options() {
+        return new Request.Options(1000*10,40*1000);
+    }
+}
+```
+重写options类。
