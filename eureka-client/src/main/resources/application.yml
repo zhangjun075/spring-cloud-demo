@@ -18,3 +18,11 @@ eureka:
     eureka-service-url-poll-interval-seconds: 10
 ribbon:
   MaxAutoRetriesNextServer: -1
+feign:
+  okhttp:
+    enabled: true
+  compression:
+    request:
+      enabled: true # You may consider enabling the request or response GZIP compression for your Feign requests. You can do this by enabling one of the properties:
+    response:
+      enabled: true

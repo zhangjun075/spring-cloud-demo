@@ -190,3 +190,179 @@ public class EurekaClientApplication {
 }
 ```
 重写options类。
+
+# hystrix 
+
+```$xslt
+A service failure in the lower level of services can cause cascading failure all the way up to the user. 
+When calls to a particular service is greater than circuitBreaker.requestVolumeThreshold (default: 20 requests) and failue percentage is greater than circuitBreaker.errorThresholdPercentage (default: >50%) in a rolling window defined by metrics.rollingStats.timeInMilliseconds (default: 10 seconds), 
+the circuit opens and the call is not made. In cases of error and an open circuit a fallback can be provided by the developer.
+```
+* How to Include Hystrix
+    * To include Hystrix in your project use the starter with group org.springframework.cloud and artifact id spring-cloud-starter-hystrix
+    * you can see [here](https://github.com/Netflix/Hystrix/tree/master/hystrix-contrib/hystrix-javanica#configuration) for more deatils.
+    
+
+
+* Default fallback method should not have any parameters except extra one to get execution exception and shouldn't throw any exceptions. Below fallbacks listed in descending order of priority:
+    - command fallback defined using fallbackMethod property of @HystrixCommand
+    - command default fallback defined using defaultFallback property of @HystrixCommand
+    - class default fallback defined using defaultFallback property of @DefaultProperties
+
+* 对于hystrix究竟是使用thread和semaphore，官网解释如下：
+    - thread:请求是在一个单独的线程中执行，当前请求受限与线程池中线程的数量
+    - semaphore：请求在当前线程执行，但是当前请求数受限于信号量计数大小。
+    
+    对于使用线程池的，有一层额外的保护防止网络超时。所以需要配置超时的，可以采用线程池的方式。
+    在你的请求量很大，通常情况下达到每秒上百甚至更多的情况下，单个线程的请求量已经过高，此种情况才使用信号量。这种典型仅仅应用于非网络请求。
+    
+* hystrix断路器说明
+  我们看下目前代码中的配置：
+  ```
+  @HystrixCommand(commandProperties = {
+        @HystrixProperty(name = "execution.isolation.thread.timeoutInMilliseconds", value = "5000"),
+        @HystrixProperty(name = "circuitBreaker.requestVolumeThreshold",value = "5"),
+        @HystrixProperty(name = "circuitBreaker.sleepWindowInMilliseconds",value = "5000000"),
+        @HystrixProperty(name = "circuitBreaker.errorThresholdPercentage",value = "10"),
+        @HystrixProperty(name = "circuitBreaker.forceOpen",value = "false"),
+        @HystrixProperty(name = "fallback.enabled",value = "true")
+    },
+        threadPoolProperties = {
+            @HystrixProperty(name = "coreSize", value = "30"),
+            @HystrixProperty(name = "maxQueueSize", value = "101"),
+            @HystrixProperty(name = "keepAliveTimeMinutes", value = "2"),
+            @HystrixProperty(name = "queueSizeRejectionThreshold", value = "15"),
+            @HystrixProperty(name = "metrics.rollingStats.numBuckets", value = "10"),
+            @HystrixProperty(name = "metrics.rollingStats.timeInMilliseconds", value = "10000")
+        })
+    public String hystrixTest() {
+        log.info("into service......");
+        test();
+        return "hystrix";
+    }
+  ```
+  - requestVolumeThreshold = 5,这里配置的是5，也就说时间窗口内最小的请求数达到5，如果是4，哪怕4个请求全部有问题，都不会出发断路器打开。有一点你要注意，你这里配置了fallback,且默认都fallback是开启的，在异常捕获的时候，也没有忽略任何异常，所以每次请求都会进入fallback方法，service方法也会进去。断路器没有打开。
+  - 当你超过了5个请求，这个时候，你可以看到断路器开启了。此时fallback方法调用了，但是你进入不了service方法。sleepWindowInMilliseconds这个参数，如果设置了永久，那么你的断路器永远不会关闭。
+
+* 我们来测试下，超过5个请求后，percentage生效的情况。在第6池开始抛异常，我们看下日志：
+```
+2018-08-30 15:35:21.079  INFO 47508 --- [nio-8086-exec-1] o.s.web.servlet.DispatcherServlet        : FrameworkServlet 'dispatcherServlet': initialization completed in 18 ms
+2018-08-30 15:35:21.103  INFO 47508 --- [nio-8086-exec-1] com.brave.web.Demo                       : into controller...
+2018-08-30 15:35:21.318  INFO 47508 --- [x-DemoService-1] com.brave.service.DemoService            : into service......
+2018-08-30 15:35:21.318  INFO 47508 --- [x-DemoService-1] com.brave.service.DemoService            : into test method,not throw exception...
+2018-08-30 15:35:22.242  INFO 47508 --- [trap-executor-0] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2018-08-30 15:35:22.295  INFO 47508 --- [nio-8086-exec-3] com.brave.web.Demo                       : into controller...
+2018-08-30 15:35:22.297  INFO 47508 --- [x-DemoService-2] com.brave.service.DemoService            : into service......
+2018-08-30 15:35:22.297  INFO 47508 --- [x-DemoService-2] com.brave.service.DemoService            : into test method,not throw exception...
+2018-08-30 15:35:23.184  INFO 47508 --- [nio-8086-exec-4] com.brave.web.Demo                       : into controller...
+2018-08-30 15:35:23.186  INFO 47508 --- [x-DemoService-3] com.brave.service.DemoService            : into service......
+2018-08-30 15:35:23.186  INFO 47508 --- [x-DemoService-3] com.brave.service.DemoService            : into test method,not throw exception...
+2018-08-30 15:35:24.048  INFO 47508 --- [nio-8086-exec-5] com.brave.web.Demo                       : into controller...
+2018-08-30 15:35:24.049  INFO 47508 --- [x-DemoService-4] com.brave.service.DemoService            : into service......
+2018-08-30 15:35:24.049  INFO 47508 --- [x-DemoService-4] com.brave.service.DemoService            : into test method,not throw exception...
+2018-08-30 15:35:24.863  INFO 47508 --- [nio-8086-exec-6] com.brave.web.Demo                       : into controller...
+2018-08-30 15:35:24.865  INFO 47508 --- [x-DemoService-5] com.brave.service.DemoService            : into service......
+2018-08-30 15:35:24.865  INFO 47508 --- [x-DemoService-5] com.brave.service.DemoService            : into test method,not throw exception...
+2018-08-30 15:35:26.328  INFO 47508 --- [nio-8086-exec-7] com.brave.web.Demo                       : into controller...
+2018-08-30 15:35:26.329  INFO 47508 --- [x-DemoService-6] com.brave.service.DemoService            : into service......
+2018-08-30 15:35:26.329  INFO 47508 --- [x-DemoService-6] com.brave.service.DemoService            : into test method,not throw exception...
+2018-08-30 15:35:26.329  INFO 47508 --- [x-DemoService-6] com.brave.service.DemoService            : throw an exception....
+2018-08-30 15:35:27.787  INFO 47508 --- [nio-8086-exec-8] com.brave.web.Demo                       : into controller...
+2018-08-30 15:35:29.945  INFO 47508 --- [nio-8086-exec-9] com.brave.web.Demo                       : into controller...
+2018-08-30 15:35:32.246  INFO 47508 --- [trap-executor-0] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2018-08-30 15:35:34.064  INFO 47508 --- [io-8086-exec-10] com.brave.web.Demo                       : into controller...
+2018-08-30 15:35:35.770  INFO 47508 --- [nio-8086-exec-2] com.brave.web.Demo                       : into controller...
+2018-08-30 15:35:36.971  INFO 47508 --- [nio-8086-exec-1] com.brave.web.Demo                       : into controller...
+```
+我们可以看到，在第6哥请求的时候抛了一个异常。第7个请求无法进入，因为断路器开启了。我们设置第percentage是10%。符合预期。如果把这个值放大，会是什么结果？继续看下：
+
+```
+@Service
+@DefaultProperties(defaultFallback = "fallback")
+@Slf4j
+public class DemoService {
+
+    @Autowired DemoClient demoClient;
+
+    public static AtomicInteger number = new AtomicInteger(0);
+
+    public Optional<String> demo() {
+        return Optional.ofNullable(demoClient.callDemo());
+    }
+
+    @HystrixCommand(commandProperties = {
+        @HystrixProperty(name = "execution.isolation.thread.timeoutInMilliseconds", value = "5000"),
+        @HystrixProperty(name = "circuitBreaker.requestVolumeThreshold",value = "5"),
+        @HystrixProperty(name = "circuitBreaker.sleepWindowInMilliseconds",value = "5000000"),
+        @HystrixProperty(name = "circuitBreaker.errorThresholdPercentage",value = "50"),
+        @HystrixProperty(name = "circuitBreaker.forceOpen",value = "false"),
+        @HystrixProperty(name = "fallback.enabled",value = "true")
+    },
+        threadPoolProperties = {
+            @HystrixProperty(name = "coreSize", value = "30"),
+            @HystrixProperty(name = "maxQueueSize", value = "101"),
+            @HystrixProperty(name = "keepAliveTimeMinutes", value = "2"),
+            @HystrixProperty(name = "queueSizeRejectionThreshold", value = "15"),
+            @HystrixProperty(name = "metrics.rollingStats.numBuckets", value = "10"),
+            @HystrixProperty(name = "metrics.rollingStats.timeInMilliseconds", value = "10000")
+        })
+    public String hystrixTest() {
+        log.info("into service......");
+        test();
+        return "hystrix";
+    }
+
+    public String fallback() {
+        return "fallback";
+    }
+
+    public void test() {
+        int num = number.addAndGet(1);
+        log.info("into test method,not throw exception...");
+        if(num>5) {
+            log.info("throw an exception....");
+            throw new NullPointerException();
+        }
+    }
+
+}
+```
+   这里，把percentage调整到了50，我们看下日志：
+   
+```
+2018-08-30 15:39:30.690  INFO 47514 --- [nio-8086-exec-1] com.brave.web.Demo                       : into controller...
+2018-08-30 15:39:30.892  INFO 47514 --- [x-DemoService-1] com.brave.service.DemoService            : into service......
+2018-08-30 15:39:30.892  INFO 47514 --- [x-DemoService-1] com.brave.service.DemoService            : into test method,not throw exception...
+2018-08-30 15:39:31.235  INFO 47514 --- [nio-8086-exec-3] com.brave.web.Demo                       : into controller...
+2018-08-30 15:39:31.237  INFO 47514 --- [x-DemoService-2] com.brave.service.DemoService            : into service......
+2018-08-30 15:39:31.237  INFO 47514 --- [x-DemoService-2] com.brave.service.DemoService            : into test method,not throw exception...
+2018-08-30 15:39:31.969  INFO 47514 --- [nio-8086-exec-4] com.brave.web.Demo                       : into controller...
+2018-08-30 15:39:31.971  INFO 47514 --- [x-DemoService-3] com.brave.service.DemoService            : into service......
+2018-08-30 15:39:31.971  INFO 47514 --- [x-DemoService-3] com.brave.service.DemoService            : into test method,not throw exception...
+2018-08-30 15:39:32.507  INFO 47514 --- [trap-executor-0] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2018-08-30 15:39:32.849  INFO 47514 --- [nio-8086-exec-5] com.brave.web.Demo                       : into controller...
+2018-08-30 15:39:32.851  INFO 47514 --- [x-DemoService-4] com.brave.service.DemoService            : into service......
+2018-08-30 15:39:32.851  INFO 47514 --- [x-DemoService-4] com.brave.service.DemoService            : into test method,not throw exception...
+2018-08-30 15:39:33.947  INFO 47514 --- [nio-8086-exec-6] com.brave.web.Demo                       : into controller...
+2018-08-30 15:39:33.949  INFO 47514 --- [x-DemoService-5] com.brave.service.DemoService            : into service......
+2018-08-30 15:39:33.949  INFO 47514 --- [x-DemoService-5] com.brave.service.DemoService            : into test method,not throw exception...
+2018-08-30 15:39:35.329  INFO 47514 --- [nio-8086-exec-7] com.brave.web.Demo                       : into controller...
+2018-08-30 15:39:35.330  INFO 47514 --- [x-DemoService-6] com.brave.service.DemoService            : into service......
+2018-08-30 15:39:35.331  INFO 47514 --- [x-DemoService-6] com.brave.service.DemoService            : into test method,not throw exception...
+2018-08-30 15:39:35.331  INFO 47514 --- [x-DemoService-6] com.brave.service.DemoService            : throw an exception....
+2018-08-30 15:39:37.292  INFO 47514 --- [nio-8086-exec-8] com.brave.web.Demo                       : into controller...
+2018-08-30 15:39:37.293  INFO 47514 --- [x-DemoService-7] com.brave.service.DemoService            : into service......
+2018-08-30 15:39:37.293  INFO 47514 --- [x-DemoService-7] com.brave.service.DemoService            : into test method,not throw exception...
+2018-08-30 15:39:37.293  INFO 47514 --- [x-DemoService-7] com.brave.service.DemoService            : throw an exception....
+2018-08-30 15:39:40.416  INFO 47514 --- [nio-8086-exec-9] com.brave.web.Demo                       : into controller...
+2018-08-30 15:39:40.417  INFO 47514 --- [x-DemoService-8] com.brave.service.DemoService            : into service......
+2018-08-30 15:39:40.418  INFO 47514 --- [x-DemoService-8] com.brave.service.DemoService            : into test method,not throw exception...
+2018-08-30 15:39:40.418  INFO 47514 --- [x-DemoService-8] com.brave.service.DemoService            : throw an exception....
+2018-08-30 15:39:41.848  INFO 47514 --- [io-8086-exec-10] com.brave.web.Demo                       : into controller...
+2018-08-30 15:39:42.512  INFO 47514 --- [trap-executor-0] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2018-08-30 15:39:47.632  INFO 47514 --- [nio-8086-exec-2] com.brave.web.Demo                       : into controller...
+2018-08-30 15:39:48.811  INFO 47514 --- [nio-8086-exec-1] com.brave.web.Demo                       : into controller...
+```
+我们看到从第六次开始抛异常，一直到第9次，然后就没有第10次了。>=50%了，断路器打开了。符合预期。
+以上大家可以参照我测试第过程，便于大家更清楚的知道断路器的原理。至于scrollwindow和bucket，大家继续再按此方法测试吧，本地模拟不太方便。
+网上很多杂七杂八的说明，其实都是翻译的官网，很多人看了一知半解，希望这个对大家了解参数有帮助。
