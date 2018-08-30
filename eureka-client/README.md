@@ -365,4 +365,14 @@ public class DemoService {
 ```
 我们看到从第六次开始抛异常，一直到第9次，然后就没有第10次了。>=50%了，断路器打开了。符合预期。
 以上大家可以参照我测试第过程，便于大家更清楚的知道断路器的原理。至于scrollwindow和bucket，大家继续再按此方法测试吧，本地模拟不太方便。
+
+* 我们继续来看下execution.isolation.thread.timeoutInMilliseconds这个参数，我这里设置成5000，也就是说该方法5秒超时，在方法里,sleep了6秒，执行结果看下
+```
+2018-08-30 15:53:22.137  INFO 47619 --- [nio-8086-exec-2] com.brave.web.Demo                       : into controller...
+2018-08-30 15:53:27.337  INFO 47619 --- [x-DemoService-1] com.brave.service.DemoService            : into service......
+2018-08-30 15:53:27.337  INFO 47619 --- [x-DemoService-1] com.brave.service.DemoService            : into test method,not throw exception...
+2018-08-30 15:53:27.347  INFO 47619 --- [ HystrixTimer-1] com.brave.service.DemoService            : into fallback....
+```
+  * 方法超时6秒，过了6秒继续执行，由于超时了，fallback也执行了。 
+
 网上很多杂七杂八的说明，其实都是翻译的官网，很多人看了一知半解，希望这个对大家了解参数有帮助。

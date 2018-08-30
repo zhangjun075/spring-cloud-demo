@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
@@ -41,12 +42,18 @@ public class DemoService {
             @HystrixProperty(name = "metrics.rollingStats.timeInMilliseconds", value = "10000")
         })
     public String hystrixTest() {
+        try {
+            TimeUnit.SECONDS.sleep(6000);//为了测试execution.isolation.thread.timeoutInMilliseconds参数
+        } catch (InterruptedException e) {
+//            e.printStackTrace();
+        }
         log.info("into service......");
         test();
         return "hystrix";
     }
 
     public String fallback() {
+        log.info("into fallback....");
         return "fallback";
     }
 
