@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
-@DefaultProperties(defaultFallback = "fallback")
+@DefaultProperties(defaultFallback = "fallback",commandProperties = {@HystrixProperty(name = "execution.isolation.thread.timeoutInMilliseconds", value = "3000")})
 @Slf4j
 public class DemoService {
 
@@ -64,6 +64,17 @@ public class DemoService {
             log.info("throw an exception....");
             throw new NullPointerException();
         }
+    }
+
+    ///////////////////测试默认的超时//////
+    @HystrixCommand
+    public String defaultTimeoutTest() {
+        try {
+            TimeUnit.SECONDS.sleep(5);
+        } catch (InterruptedException e) {
+
+        }
+        return "default timeout...";
     }
 
 }

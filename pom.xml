@@ -40,5 +40,6 @@
     <module>eureka-server</module>
     <module>eureka-client</module>
     <module>eureka-client2</module>
+    <module>hystrix-dashboard</module>
   </modules>
 </project>

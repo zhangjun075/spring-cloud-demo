@@ -1,0 +1,23 @@
+server:
+  port: 9999
+  host: localhost
+spring:
+  application:
+    name: hystrix-dashboard
+turbine:
+#  aggregator:
+#    cluster-config: EUREKA-CLIENT
+  app-config: eureka-client
+  clusterNameExpression: "'default'"
+eureka:
+  instance:
+    hostname: eureka-client
+    prefer-ip-address: true
+    instance-id: ${spring.cloud.client.ipAddress}:${server.port}
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://${server.host}:8083/eureka/,http://${server.host}:8084/eureka/,http://${server.host}:8085/eureka/
+    registry-fetch-interval-seconds: 30
+    eureka-service-url-poll-interval-seconds: 10
